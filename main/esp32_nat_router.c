@@ -534,7 +534,7 @@ char* param_set_default(const char* def_val) {
     return retval;
 }
 
-void app_main(void)
+void code_main(void)
 {
     initialize_nvs();
 
@@ -648,36 +648,49 @@ void app_main(void)
         prompt = "esp32> ";
 #endif //CONFIG_LOG_COLORS
     }
-
     /* Main loop */
-    while(true) {
-        /* Get a line using linenoise.
-         * The line is returned when ENTER is pressed.
-         */
-        char* line = linenoise(prompt);
-        if (line == NULL) { /* Ignore empty lines */
-            continue;
-        }
-        /* Add the command to the history */
-        linenoiseHistoryAdd(line);
-#if CONFIG_STORE_HISTORY
-        /* Save command history to filesystem */
-        linenoiseHistorySave(HISTORY_PATH);
-#endif
+    while (true) {
+        /* Lire l'état du capteur sur le GPIO 26 */
+        int sensor_state = gpio_get_level(GPIO_SENSOR_PIN);
 
-        /* Try to run the command */
-        int ret;
-        esp_err_t err = esp_console_run(line, &ret);
-        if (err == ESP_ERR_NOT_FOUND) {
-            printf("Unrecognized command\n");
-        } else if (err == ESP_ERR_INVALID_ARG) {
-            // command was empty
-        } else if (err == ESP_OK && ret != ESP_OK) {
-            printf("Command returned non-zero error code: 0x%x (%s)\n", ret, esp_err_to_name(ret));
-        } else if (err != ESP_OK) {
-            printf("Internal error: %s\n", esp_err_to_name(err));
+        /* Vérifier l'état du capteur */
+        if (sensor_state == 1) {
+            printf("GPIO à l'état High. Mise en deep sleep...\n");
+            /* Mettre l'ESP32 en deep sleep */
+            break; // Sortir de la boucle avant le deep sleep
+             
+        } else {
+            printf("GPIO à l'état Low. Attente de changement d'état...\n");
         }
-        /* linenoise allocates line buffer on the heap, so need to free it */
-        linenoiseFree(line);
+        
+        /* Attendre un court laps de temps avant de vérifier à nouveau */
+        vTaskDelay(pdMS_TO_TICKS(3000));
     }
+    esp_deep_sleep_start();
+}
+
+void app_main() {
+    esp_rom_gpio_pad_select_gpio(GPIO_SENSOR_PIN);
+    gpio_set_direction(GPIO_SENSOR_PIN, GPIO_MODE_INPUT);
+
+   // Configurer le GPIO 26 comme déclencheur de réveil sur front montant (statut 0)
+    esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
+    esp_sleep_enable_ext1_wakeup(1ULL << GPIO_SENSOR_PIN, ESP_EXT1_WAKEUP_ANY_HIGH);
+
+    // Lire l'état du capteur sur le GPIO 26
+    int sensor_state = gpio_get_level(GPIO_SENSOR_PIN);
+
+    // Vérifier l'état du capteur
+    if (sensor_state == 1) {
+        printf("GPIO à l'état High. Mise en deep sleep...\n");
+        // Mettre l'ESP32 en deep sleep
+        esp_deep_sleep_start();
+    } else if (sensor_state == 0) {
+        printf("GPIO à l'état Low. Exécution du code...\n");
+        // Exécuter le code précédent
+        code_main();
+    }   
+
+    // Attendre un court laps de temps avant de vérifier à nouveau
+    vTaskDelay(pdMS_TO_TICKS(100));
 }
