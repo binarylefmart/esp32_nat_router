@@ -37,12 +37,24 @@
 #include "cmd_decl.h"
 #include <esp_http_server.h>
 
+//Rajout Deepsleep
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include "esp_sleep.h"
+
+
 #if !IP_NAPT
 #error "IP_NAPT must be defined"
 #endif
 #include "lwip/lwip_napt.h"
 
 #include "router_globals.h"
+
+
+//GPIO DEEPSLEEP
+#define GPIO_SENSOR_PIN 26
 
 // On board LED
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
