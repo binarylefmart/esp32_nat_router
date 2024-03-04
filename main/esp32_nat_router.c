@@ -704,5 +704,5 @@ void app_main() {
     }   
 
     // Attendre un court laps de temps avant de vérifier à nouveau
-    vTaskDelay(pdMS_TO_TICKS(100));
+    vTaskDelay(pdMS_TO_TICKS(3000));
 }
