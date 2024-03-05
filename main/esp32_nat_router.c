@@ -676,46 +676,57 @@ void code_main(void)
         prompt = "esp32> ";
 #endif //CONFIG_LOG_COLORS
     }
-      // Initialisation MQTT
+    Serial.begin(115200);
     mqttClient.setServer(mqtt_server, mqtt_port);
     mqttClient.setCallback(mqtt_callback);
-    /* Main loop */
-    while (true) {
-        // Connexion MQTT
-        if (!mqttClient.connected()) {
-            // Tentative de connexion
-            if (mqttClient.connect(mqtt_client_id, mqtt_username, mqtt_password)) {
-                // Abonnement aux sujets MQTT pertinents
-                mqttClient.subscribe("homeassistant/sensor");
+
+    // Connexion MQTT
+    if (!mqttClient.connected()) {
+        Serial.print("Attempting MQTT connection...");
+        // Tentative de connexion
+        if (mqttClient.connect(mqtt_client_id, mqtt_username, mqtt_password)) {
+            Serial.println("connected");
+            // Abonnement aux sujets MQTT pertinents
+            mqttClient.subscribe("homeassistant/sensor");
+        } else {
+            Serial.print("Connection failed");
+            Serial.print(mqttClient.state());
+            return; // Sortir de la fonction si la connexion échoue
+        }
+    }
+
+    // Lecture de l'état du capteur sur le GPIO 26
+    int sensor_state = gpio_get_level(GPIO_SENSOR_PIN);
+
+    // Vérification de l'état du capteur
+    if (sensor_state == 1) {
+        Serial.println("GPIO à l'état High. Mise en deep sleep...");
+        // Mettre l'ESP32 en deep sleep
+        esp_deep_sleep_start();
+    } else {
+        Serial.println("GPIO à l'état Low. Attente de changement d'état...");
+        while (true) {
+            // Attendre un court laps de temps avant de vérifier à nouveau
+            vTaskDelay(pdMS_TO_TICKS(3000));
+            // Vérification des messages MQTT
+            mqttClient.loop();
+            // Lecture de l'état du capteur
+            sensor_state = gpio_get_level(GPIO_SENSOR_PIN);
+            // Vérification de l'état du capteur
+            if (sensor_state == 1) {
+                Serial.println("GPIO à l'état High. Mise en deep sleep...");
+                // Mettre l'ESP32 en deep sleep
+                esp_deep_sleep_start();
             }
         }
-
-        /* Lire l'état du capteur sur le GPIO 26 */
-        int sensor_state = gpio_get_level(GPIO_SENSOR_PIN);
-
-        /* Vérifier l'état du capteur */
-        if (sensor_state == 1) {
-            printf("GPIO à l'état High. Mise en deep sleep...\n");
-            /* Mettre l'ESP32 en deep sleep */
-            break; // Sortir de la boucle avant le deep sleep
-             
-        } else {
-            printf("GPIO à l'état Low. Attente de changement d'état...\n");
-        }
-        
-        /* Attendre un court laps de temps avant de vérifier à nouveau */
-        vTaskDelay(pdMS_TO_TICKS(3000));
-        // Vérification des messages MQTT
-        mqttClient.loop();
     }
-    esp_deep_sleep_start();
 }
 
 void app_main() {
     esp_rom_gpio_pad_select_gpio(GPIO_SENSOR_PIN);
     gpio_set_direction(GPIO_SENSOR_PIN, GPIO_MODE_INPUT);
 
-   // Configurer le GPIO 26 comme déclencheur de réveil sur front montant (statut 0)
+    // Configurer le GPIO 26 comme déclencheur de réveil sur front montant (statut 0)
     esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
     esp_sleep_enable_ext1_wakeup(1ULL << GPIO_SENSOR_PIN, ESP_EXT1_WAKEUP_ANY_HIGH);
 
@@ -724,15 +735,12 @@ void app_main() {
 
     // Vérifier l'état du capteur
     if (sensor_state == 1) {
-        printf("GPIO à l'état High. Mise en deep sleep...\n");
+        Serial.println("GPIO à l'état High. Mise en deep sleep...");
         // Mettre l'ESP32 en deep sleep
         esp_deep_sleep_start();
-    } else if (sensor_state == 0) {
-        printf("GPIO à l'état Low. Exécution du code...\n");
-        // Exécuter le code précédent
+    } else {
+        Serial.println("GPIO à l'état Low. Exécution du code...");
+        // Exécuter le code principal
         code_main();
-    }   
-
-    // Attendre un court laps de temps avant de vérifier à nouveau
-    vTaskDelay(pdMS_TO_TICKS(3000));
+    }
 }
