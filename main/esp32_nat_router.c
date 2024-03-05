@@ -676,7 +676,6 @@ void code_main(void)
         prompt = "esp32> ";
 #endif //CONFIG_LOG_COLORS
     }
-    Serial.begin(115200);
     mqttClient.setServer(mqtt_server, mqtt_port);
     mqttClient.setCallback(mqtt_callback);
 
