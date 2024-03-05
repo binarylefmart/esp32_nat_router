@@ -44,6 +44,8 @@
 #include "driver/gpio.h"
 #include "esp_sleep.h"
 
+//Rajout MQTT
+#include <PubSubClient.h>
 
 #if !IP_NAPT
 #error "IP_NAPT must be defined"
@@ -52,6 +54,20 @@
 
 #include "router_globals.h"
 
+//Paramètres MQTT
+const char* mqtt_server = "182.25.1.50";
+const int mqtt_port = 1883;
+const char* mqtt_username = "mqtt_adm";
+const char* mqtt_password = "MqTTlou";
+const char* mqtt_client_id = "Solar_Wifi_Ext"; // Changez pour un identifiant unique
+
+WiFiClient espClient;
+PubSubClient mqttClient(espClient);
+
+// Fonction de rappel pour les messages MQTT reçus
+void mqtt_callback(char* topic, byte* payload, unsigned int length) {
+  // Gérez les messages MQTT reçus ici
+}
 
 //GPIO DEEPSLEEP
 #define GPIO_SENSOR_PIN 26
@@ -660,8 +676,20 @@ void code_main(void)
         prompt = "esp32> ";
 #endif //CONFIG_LOG_COLORS
     }
+      // Initialisation MQTT
+    mqttClient.setServer(mqtt_server, mqtt_port);
+    mqttClient.setCallback(mqtt_callback);
     /* Main loop */
     while (true) {
+        // Connexion MQTT
+        if (!mqttClient.connected()) {
+            // Tentative de connexion
+            if (mqttClient.connect(mqtt_client_id, mqtt_username, mqtt_password)) {
+                // Abonnement aux sujets MQTT pertinents
+                mqttClient.subscribe("homeassistant/sensor");
+            }
+        }
+
         /* Lire l'état du capteur sur le GPIO 26 */
         int sensor_state = gpio_get_level(GPIO_SENSOR_PIN);
 
@@ -677,6 +705,8 @@ void code_main(void)
         
         /* Attendre un court laps de temps avant de vérifier à nouveau */
         vTaskDelay(pdMS_TO_TICKS(3000));
+        // Vérification des messages MQTT
+        mqttClient.loop();
     }
     esp_deep_sleep_start();
 }
