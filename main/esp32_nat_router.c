@@ -695,10 +695,7 @@ void code_main(void)
 
     // Déclarez et initialisez le client MQTT
     esp_mqtt_client_config_t mqtt_cfg = {
-        .host = "182.25.1.50",
-        .port = 1883,
-        .user = "mqtt_adm",
-        .pass = "mqtt_adm",
+        .uri = "mqtt://mqtt_adm:mqtt_adm@182.25.1.50:1883",
         .client_id = "esp32_client",
     };
     esp_mqtt_client_handle_t mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
@@ -749,10 +746,7 @@ void app_main() {
 
     // Déclarez et initialisez le client MQTT
     esp_mqtt_client_config_t mqtt_cfg = {
-        .host = "182.25.1.50",
-        .port = 1883,
-        .user = "mqtt_adm",
-        .pass = "mqtt_adm",
+        .uri = "mqtt://mqtt_adm:mqtt_adm@182.25.1.50:1883",
         .client_id = "esp32_client",
     };
     esp_mqtt_client_handle_t mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
