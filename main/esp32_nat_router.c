@@ -47,52 +47,12 @@
 //Rajout MQTT
 #include "mqtt_client.h"
 
-static esp_err_t mqtt(esp_mqtt_event_handle_t event)
-{
-    esp_mqtt_client_handle_t client = event->client;
-    int msg_id;
-    int8_t rssi; // Déclaration de la variable rssi
-    int gpio_state;
-
-    switch (event->event_id) {
-        case MQTT_EVENT_CONNECTED:
-            ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-            if (esp_wifi_sta_get_rssi(&rssi) == ESP_OK) { // Appel de esp_wifi_sta_get_rssi
-                ESP_LOGI(TAG, "RSSI: %d", rssi);
-            } else {
-                ESP_LOGE(TAG, "Could not get RSSI");
-            }
-            gpio_state = gpio_get_level(GPIO_NUM_26);
-            ESP_LOGI(TAG, "GPIO 26 state: %d", gpio_state);
-            break;
-
-        case MQTT_EVENT_DISCONNECTED:
-            ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
-            break;
-
-        // Ajoutez des cas pour d'autres événements que vous souhaitez gérer...
-
-        default:
-            ESP_LOGI(TAG, "Other event id:%d", event->event_id);
-            break;
-    }
-
-    return ESP_OK;
-}
-
 #if !IP_NAPT
 #error "IP_NAPT must be defined"
 #endif
 #include "lwip/lwip_napt.h"
 
 #include "router_globals.h"
-
-//Paramètres MQTT
-//const char* mqtt_server = "182.25.1.50";
-//const int mqtt_port = 1883;
-//const char* mqtt_username = "mqtt_adm";
-//const char* mqtt_password = "MqTTlou";
-//const char* mqtt_client_id = "Solar_Wifi_Ext"; // Changez pour un identifiant unique
 
 //GPIO DEEPSLEEP
 #define GPIO_SENSOR_PIN 26
@@ -587,6 +547,37 @@ char* param_set_default(const char* def_val) {
     return retval;
 }
 
+static esp_err_t mqtt(esp_mqtt_event_handle_t event)
+{
+    int rssi; // Déclaration de la variable rssi
+    int gpio_state;
+
+    switch (event->event_id) {
+        case MQTT_EVENT_CONNECTED:
+            ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
+            if (esp_wifi_sta_get_rssi(&rssi) == ESP_OK) { // Appel de esp_wifi_sta_get_rssi
+                ESP_LOGI(TAG, "RSSI: %d", rssi);
+            } else {
+                ESP_LOGE(TAG, "Could not get RSSI");
+            }
+            gpio_state = gpio_get_level(GPIO_NUM_26);
+            ESP_LOGI(TAG, "GPIO 26 state: %d", gpio_state);
+            break;
+
+        case MQTT_EVENT_DISCONNECTED:
+            ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
+            break;
+
+        // Ajoutez des cas pour d'autres événements que vous souhaitez gérer...
+
+        default:
+            ESP_LOGI(TAG, "Other event id:%d", event->event_id);
+            break;
+    }
+
+    return ESP_OK;
+}
+
 void code_main(void)
 {
     initialize_nvs();
@@ -706,10 +697,9 @@ void code_main(void)
     esp_mqtt_client_config_t mqtt_cfg = {
         .host = "182.25.1.50",
         .port = 1883,
-        .client_id = "mqtt_adm",
-        .username = "mqtt_adm",
-        .password = "MqTTlou",
-        .event_handle = mqtt,
+        .user = "mqtt_adm",
+        .pass = "mqtt_adm",
+        .client_id = "esp32_client",
     };
     esp_mqtt_client_handle_t mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_start(mqtt_client);
@@ -738,7 +728,7 @@ void code_main(void)
             printf("GPIO à l'état Low. Attente de changement d'état...\n");
             /* Publier l'état du capteur sur MQTT */
             esp_mqtt_client_publish(mqtt_client, "/sensor/state", "Low", 0, 1, 0);
-                        // Récupérer le RSSI
+            // Récupérer le RSSI
             wifi_ap_record_t wifidata;
             if (esp_wifi_sta_get_ap_info(&wifidata) == ESP_OK) {
                 printf("RSSI: %d\n", wifidata.rssi);
@@ -761,14 +751,23 @@ void app_main() {
     esp_mqtt_client_config_t mqtt_cfg = {
         .host = "182.25.1.50",
         .port = 1883,
-        .client_id = "mqtt_adm",
-        .username = "mqtt_adm",
-        .password = "MqTTlou",
-        .event_handle = mqtt,
+        .user = "mqtt_adm",
+        .pass = "mqtt_adm",
+        .client_id = "esp32_client",
     };
-
     esp_mqtt_client_handle_t mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_start(mqtt_client);
+
+    /* Main loop */
+    while (true) {
+        /* Lire l'état du capteur sur le GPIO 26 */
+        int sensor_state = gpio_get_level(GPIO_SENSOR_PIN);
+
+        /* Vérifier l'état du capteur */
+        if (sensor_state == 1) {
+            // Votre code existant continue ici...
+        }
+    }
 
     esp_rom_gpio_pad_select_gpio(GPIO_SENSOR_PIN);
     gpio_set_direction(GPIO_SENSOR_PIN, GPIO_MODE_INPUT);
