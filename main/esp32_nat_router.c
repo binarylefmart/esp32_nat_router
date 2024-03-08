@@ -748,18 +748,6 @@ void code_main(void)
 
 void app_main() {
 
-    // Déclarez et initialisez le client MQTT
-    esp_mqtt_client_config_t mqtt_cfg = {
-        .broker = {
-            .address = {
-                .uri = "mqtt://mqtt_adm:mqtt_adm@182.25.1.50:1883",
-            },
-        },
-        // initialiser les autres membres...
-    };
-    esp_mqtt_client_handle_t mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
-    esp_mqtt_client_start(mqtt_client);
-
     esp_rom_gpio_pad_select_gpio(GPIO_SENSOR_PIN);
     gpio_set_direction(GPIO_SENSOR_PIN, GPIO_MODE_INPUT);
 
@@ -773,8 +761,6 @@ void app_main() {
     // Vérifier l'état du capteur
     if (sensor_state == 1) {
         printf("GPIO à l'état High. Mise en deep sleep...\n");
-        /* Publier l'état du capteur sur MQTT */
-        esp_mqtt_client_publish(mqtt_client, "/sensor/state", "High", 0, 1, 0);
         // Mettre l'ESP32 en deep sleep
         esp_deep_sleep_start();
     } else if (sensor_state == 0) {
