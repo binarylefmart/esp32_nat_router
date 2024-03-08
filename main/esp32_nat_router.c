@@ -695,8 +695,12 @@ void code_main(void)
 
     // Déclarez et initialisez le client MQTT
     esp_mqtt_client_config_t mqtt_cfg = {
-        .uri = "mqtt://mqtt_adm:mqtt_adm@182.25.1.50:1883",
-        .client_id = "esp32_client",
+        .broker = {
+            .address = {
+                .uri = "mqtt://mqtt_adm:mqtt_adm@182.25.1.50:1883",
+            },
+        },
+        // initialiser les autres membres...
     };
     esp_mqtt_client_handle_t mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_start(mqtt_client);
@@ -746,8 +750,12 @@ void app_main() {
 
     // Déclarez et initialisez le client MQTT
     esp_mqtt_client_config_t mqtt_cfg = {
-        .uri = "mqtt://mqtt_adm:mqtt_adm@182.25.1.50:1883",
-        .client_id = "esp32_client",
+        .broker = {
+            .address = {
+                .uri = "mqtt://mqtt_adm:mqtt_adm@182.25.1.50:1883",
+            },
+        },
+        // initialiser les autres membres...
     };
     esp_mqtt_client_handle_t mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_start(mqtt_client);
