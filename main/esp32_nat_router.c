@@ -760,17 +760,6 @@ void app_main() {
     esp_mqtt_client_handle_t mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_start(mqtt_client);
 
-    /* Main loop */
-    while (true) {
-        /* Lire l'état du capteur sur le GPIO 26 */
-        int sensor_state = gpio_get_level(GPIO_SENSOR_PIN);
-
-        /* Vérifier l'état du capteur */
-        if (sensor_state == 1) {
-            // Votre code existant continue ici...
-        }
-    }
-
     esp_rom_gpio_pad_select_gpio(GPIO_SENSOR_PIN);
     gpio_set_direction(GPIO_SENSOR_PIN, GPIO_MODE_INPUT);
 
