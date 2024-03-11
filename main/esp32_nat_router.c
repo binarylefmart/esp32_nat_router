@@ -723,6 +723,7 @@ void code_main(void)
                 sprintf(rssi_str, "%d", wifidata.rssi);
                 esp_mqtt_client_publish(mqtt_client, "/esp32/rssi", rssi_str, 0, 1, 0);
             }
+            vTaskDelay(pdMS_TO_TICKS(5000));
             break; // Sortir de la boucle avant le deep sleep
              
         } else {
@@ -740,7 +741,7 @@ void code_main(void)
         }
         
         /* Attendre un court laps de temps avant de vérifier à nouveau */
-        vTaskDelay(pdMS_TO_TICKS(3000));
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
     /* Mettre l'ESP32 en deep sleep */
     esp_deep_sleep_start();
@@ -760,11 +761,11 @@ void app_main() {
 
     // Vérifier l'état du capteur
     if (sensor_state == 1) {
-        printf("GPIO à l'état High. Mise en deep sleep...\n");
+        printf("Il fait nuit, GPIO à l'état High; Mise en deep sleep...\n");
         // Mettre l'ESP32 en deep sleep
         esp_deep_sleep_start();
     } else if (sensor_state == 0) {
-        printf("GPIO à l'état Low. Exécution du code...\n");
+        printf("Il fait jour, GPIO à l'état Low; En attente ...\n");
         // Exécuter le code précédent
         code_main();
     }   
