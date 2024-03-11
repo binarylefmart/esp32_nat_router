@@ -697,7 +697,7 @@ void code_main(void)
     esp_mqtt_client_config_t mqtt_cfg = {
         .broker = {
             .address = {
-                .uri = "mqtt://mqtt_adm:mqtt_adm@182.25.1.50:1883",
+                .uri = "mqtt://mqtt_adm:MqTTlou@182.25.1.50:1883",
             },
         },
         // initialiser les autres membres...
