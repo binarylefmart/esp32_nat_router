@@ -692,7 +692,7 @@ void code_main(void)
         prompt = "esp32> ";
 #endif //CONFIG_LOG_COLORS
     }
-
+    vTaskDelay(pdMS_TO_TICKS(5000));
     // Déclarez et initialisez le client MQTT
     esp_mqtt_client_config_t mqtt_cfg = {
         .broker = {
