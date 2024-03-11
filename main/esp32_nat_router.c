@@ -712,9 +712,9 @@ void code_main(void)
 
         /* Vérifier l'état du capteur */
         if (sensor_state == 1) {
-            printf("GPIO à l'état High. Mise en deep sleep...\n");
+            printf("Il fait nuit, GPIO à l'état High; Mise en deep sleep...\n");
             /* Publier l'état du capteur sur MQTT */
-            esp_mqtt_client_publish(mqtt_client, "/sensor/state", "High", 0, 1, 0);
+            esp_mqtt_client_publish(mqtt_client, "/sensor/state", "Nuit", 0, 1, 0);
             // Récupérer le RSSI
             wifi_ap_record_t wifidata;
             if (esp_wifi_sta_get_ap_info(&wifidata) == ESP_OK) {
@@ -726,9 +726,9 @@ void code_main(void)
             break; // Sortir de la boucle avant le deep sleep
              
         } else {
-            printf("GPIO à l'état Low. Attente de changement d'état...\n");
+            printf("Il fait jour, GPIO à l'état Low; En attente ...\n");
             /* Publier l'état du capteur sur MQTT */
-            esp_mqtt_client_publish(mqtt_client, "/sensor/state", "Low", 0, 1, 0);
+            esp_mqtt_client_publish(mqtt_client, "/sensor/state", "Jour", 0, 1, 0);
             // Récupérer le RSSI
             wifi_ap_record_t wifidata;
             if (esp_wifi_sta_get_ap_info(&wifidata) == ESP_OK) {
