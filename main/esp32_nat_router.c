@@ -793,20 +793,20 @@ void app_main() {
 
     // Configurer le GPIO 26 comme déclencheur de réveil sur front montant (statut 0)
     esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON);
-    esp_sleep_enable_ext1_wakeup(1ULL << GPIO_SENSOR_PIN, ESP_EXT1_WAKEUP_ANY_HIGH);
+    esp_sleep_enable_ext1_wakeup(1ULL << GPIO_SENSOR_PIN, ESP_EXT1_WAKEUP_ALL_LOW);
 
     // Lire l'état du capteur sur le GPIO 26
     int sensor_state = gpio_get_level(GPIO_SENSOR_PIN);
 
     // Vérifier l'état du capteur
-    if (sensor_state == 1) {
+    if (sensor_state == 0) {
+        printf("Il fait jour, GPIO à l'état Low; En attente ...\n");
+        // Exécuter le code
+        code_main();
+    } else if (sensor_state == 1) {
         printf("Il fait nuit, GPIO à l'état High; Mise en deep sleep...\n");
         // Mettre l'ESP32 en deep sleep
         esp_deep_sleep_start();
-    } else if (sensor_state == 0) {
-        printf("Il fait jour, GPIO à l'état Low; En attente ...\n");
-        // Exécuter le code précédent
-        code_main();
     }   
 
     // Attendre un court laps de temps avant de vérifier à nouveau
