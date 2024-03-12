@@ -603,6 +603,9 @@ void monitor_and_publish_battery_voltage(esp_mqtt_client_handle_t client) {
     if (battery_percentage < 0) battery_percentage = 0;
     if (battery_percentage > 100) battery_percentage = 100;
 
+    // Afficher le pourcentage de la batterie dans le terminal série
+    printf("Battery: %.2f%%\n", battery_percentage);
+
      // Convertir le pourcentage de la batterie en une chaîne pour la publication MQTT
     char battery_percentage_str[8];
     snprintf(battery_percentage_str, sizeof(battery_percentage_str), "%.2f", battery_percentage);
