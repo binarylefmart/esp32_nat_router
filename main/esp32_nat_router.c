@@ -47,6 +47,9 @@
 //Rajout MQTT
 #include "mqtt_client.h"
 
+//Rajout Monitor-Batte
+#include "driver/adc.h"
+
 #if !IP_NAPT
 #error "IP_NAPT must be defined"
 #endif
@@ -574,8 +577,38 @@ static esp_err_t mqtt(esp_mqtt_event_handle_t event)
             ESP_LOGI(TAG, "Other event id:%d", event->event_id);
             break;
     }
+    return ESP_OK;    
+}
 
-    return ESP_OK;
+#define BATTERY_VOLTAGE_CHANNEL ADC1_CHANNEL_6 // Remplacez par le canal ADC correct pour votre configuration
+#define MQTT_BATTERY_TOPIC "esp32/battery" // Remplacez par le sujet MQTT de votre choix
+
+void monitor_and_publish_battery_voltage(esp_mqtt_client_handle_t client) {
+    // Configure ADC
+    adc1_config_width(ADC_WIDTH_BIT_12);
+    adc1_config_channel_atten(BATTERY_VOLTAGE_CHANNEL, ADC_ATTEN_DB_11);
+
+    // Lire la valeur ADC brute
+    int raw_reading = adc1_get_raw(BATTERY_VOLTAGE_CHANNEL);
+
+    // Convertir la lecture brute en voltage
+    // Remarque : Cette conversion dépend de votre configuration matérielle et peut nécessiter un ajustement
+    float voltage = raw_reading * (3.3 / 4095.0);
+
+    // Convertir le voltage en pourcentage de la batterie
+    // 3.0V est considéré comme 0%, 4.2V est considéré comme 100%
+    float battery_percentage = (voltage - 3.0) / (4.2 - 3.0) * 100;
+
+    // Limiter le pourcentage entre 0 et 100
+    if (battery_percentage < 0) battery_percentage = 0;
+    if (battery_percentage > 100) battery_percentage = 100;
+
+     // Convertir le pourcentage de la batterie en une chaîne pour la publication MQTT
+    char battery_percentage_str[8];
+    snprintf(battery_percentage_str, sizeof(battery_percentage_str), "%.2f", battery_percentage);
+
+    // Publier le pourcentage de la batterie à un sujet MQTT
+    esp_mqtt_client_publish(client, MQTT_BATTERY_TOPIC, battery_percentage_str, 0, 1, 0);
 }
 
 void code_main(void)
@@ -723,6 +756,8 @@ void code_main(void)
                 sprintf(rssi_str, "%d", wifidata.rssi);
                 esp_mqtt_client_publish(mqtt_client, "/esp32/rssi", rssi_str, 0, 1, 0);
             }
+            // Surveiller et publier le pourcentage de la batterie
+            monitor_and_publish_battery_voltage(mqtt_client);
             vTaskDelay(pdMS_TO_TICKS(5000));
             break; // Sortir de la boucle avant le deep sleep
              
@@ -738,6 +773,8 @@ void code_main(void)
                 sprintf(rssi_str, "%d", wifidata.rssi);
                 esp_mqtt_client_publish(mqtt_client, "/esp32/rssi", rssi_str, 0, 1, 0);
             }
+            // Surveiller et publier le pourcentage de la batterie
+            monitor_and_publish_battery_voltage(mqtt_client);
         }
         
         /* Attendre un court laps de temps avant de vérifier à nouveau */
