@@ -722,6 +722,22 @@ void code_main(void)
                 char rssi_str[10];
                 sprintf(rssi_str, "%d", wifidata.rssi);
                 esp_mqtt_client_publish(mqtt_client, "/esp32/rssi", rssi_str, 0, 1, 0);
+		// Convertir le RSSI en pourcentage
+                int rssi = wifidata.rssi;
+                int rssi_max = -30;
+                int rssi_min = -100;
+                int rssi_percentage = 0;
+                if (rssi <= rssi_min) {
+                    rssi_percentage = 0;
+                } else if (rssi >= rssi_max) {
+                    rssi_percentage = 100;
+                } else {
+                    rssi_percentage = (rssi - rssi_min) * 100 / (rssi_max - rssi_min);
+                }
+                printf("Force Signal: %d%%\n", rssi_percentage);
+                char rssi_percentage_str[10];
+                sprintf(rssi_percentage_str, "%d", rssi_percentage);
+                esp_mqtt_client_publish(mqtt_client, "/esp32/rssi_percentage", rssi_percentage_str, 0, 1, 0);
             }
             vTaskDelay(pdMS_TO_TICKS(5000));
             break; // Sortir de la boucle avant le deep sleep
@@ -737,6 +753,22 @@ void code_main(void)
                 char rssi_str[10];
                 sprintf(rssi_str, "%d", wifidata.rssi);
                 esp_mqtt_client_publish(mqtt_client, "/esp32/rssi", rssi_str, 0, 1, 0);
+		// Convertir le RSSI en pourcentage
+                int rssi = wifidata.rssi;
+                int rssi_max = -30;
+                int rssi_min = -100;
+                int rssi_percentage = 0;
+                if (rssi <= rssi_min) {
+                    rssi_percentage = 0;
+                } else if (rssi >= rssi_max) {
+                    rssi_percentage = 100;
+                } else {
+                    rssi_percentage = (rssi - rssi_min) * 100 / (rssi_max - rssi_min);
+                }
+                printf("Force Signal: %d%%\n", rssi_percentage);
+                char rssi_percentage_str[10];
+                sprintf(rssi_percentage_str, "%d", rssi_percentage);
+                esp_mqtt_client_publish(mqtt_client, "/esp32/rssi_percentage", rssi_percentage_str, 0, 1, 0);
             }
         }
         
