@@ -787,7 +787,6 @@ void code_main(void)
 }
 
 void app_main() {
-
     esp_rom_gpio_pad_select_gpio(GPIO_SENSOR_PIN);
     gpio_set_direction(GPIO_SENSOR_PIN, GPIO_MODE_INPUT);
 
