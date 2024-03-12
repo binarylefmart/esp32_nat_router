@@ -583,7 +583,7 @@ static esp_err_t mqtt(esp_mqtt_event_handle_t event)
 #define BATTERY_VOLTAGE_CHANNEL ADC1_CHANNEL_6 // Remplacez par le canal ADC correct pour votre configuration
 #define MQTT_BATTERY_TOPIC "esp32/battery" // Remplacez par le sujet MQTT de votre choix
 
-void monitor_and_publish_battery_voltage(esp_mqtt_client_handle_t client) {
+void monitor_and_publish_battery_voltage(esp_mqtt_client_handle_t mqtt_client) {
     // Configure ADC
     adc1_config_width(ADC_WIDTH_BIT_12);
     adc1_config_channel_atten(BATTERY_VOLTAGE_CHANNEL, ADC_ATTEN_DB_11);
@@ -611,7 +611,7 @@ void monitor_and_publish_battery_voltage(esp_mqtt_client_handle_t client) {
     snprintf(battery_percentage_str, sizeof(battery_percentage_str), "%.2f", battery_percentage);
 
     // Publier le pourcentage de la batterie à un sujet MQTT
-    esp_mqtt_client_publish(client, MQTT_BATTERY_TOPIC, battery_percentage_str, 0, 1, 0);
+    esp_mqtt_client_publish(mqtt_client, MQTT_BATTERY_TOPIC, battery_percentage_str, 0, 1, 0);
 }
 
 void code_main(void)
