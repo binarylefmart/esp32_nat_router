@@ -581,7 +581,6 @@ static esp_err_t mqtt(esp_mqtt_event_handle_t event)
 }
 
 #define BATTERY_VOLTAGE_CHANNEL ADC1_CHANNEL_6 // Remplacez par le canal ADC correct pour votre configuration
-#define MQTT_BATTERY_TOPIC "esp32/battery" // Remplacez par le sujet MQTT de votre choix
 
 void monitor_and_publish_battery_voltage(esp_mqtt_client_handle_t mqtt_client) {
     // Configure ADC
@@ -604,14 +603,14 @@ void monitor_and_publish_battery_voltage(esp_mqtt_client_handle_t mqtt_client) {
     if (battery_percentage > 100) battery_percentage = 100;
 
     // Afficher le pourcentage de la batterie dans le terminal série
-    printf("Battery: %.2f%%\n", battery_percentage);
+    printf("Battery: %d%%\n", (int)battery_percentage);
 
      // Convertir le pourcentage de la batterie en une chaîne pour la publication MQTT
     char battery_percentage_str[8];
-    snprintf(battery_percentage_str, sizeof(battery_percentage_str), "%.2f", battery_percentage);
+    snprintf(battery_percentage_str, sizeof(battery_percentage_str), "%d", (int)battery_percentage);
 
     // Publier le pourcentage de la batterie à un sujet MQTT
-    esp_mqtt_client_publish(mqtt_client, MQTT_BATTERY_TOPIC, battery_percentage_str, 0, 1, 0);
+    esp_mqtt_client_publish(mqtt_client, "/esp32/battery", battery_percentage_str, 0, 1, 0);
 }
 
 void code_main(void)
