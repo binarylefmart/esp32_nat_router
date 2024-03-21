@@ -47,8 +47,8 @@
 //Rajout MQTT
 #include "mqtt_client.h"
 
-//Rajout Monitor-Batte
-#include "driver/adc.h"
+//Rajout INA219
+#include "ina219.h"
 
 #if !IP_NAPT
 #error "IP_NAPT must be defined"
@@ -59,6 +59,17 @@
 
 //GPIO DEEPSLEEP
 #define GPIO_SENSOR_PIN 26
+
+//Configuration INA219
+#define I2C_MASTER_NUM I2C_NUM_0
+#define I2C_MASTER_SCL_IO 22
+#define I2C_MASTER_SDA_IO 21
+#define I2C_MASTER_FREQ_HZ 1000000
+
+static const char *INA219_TAG = "INA219";
+
+ina219_t dev;
+
 
 // On board LED
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
@@ -580,37 +591,59 @@ static esp_err_t mqtt(esp_mqtt_event_handle_t event)
     return ESP_OK;    
 }
 
-#define BATTERY_VOLTAGE_CHANNEL ADC1_CHANNEL_6 // Remplacez par le canal ADC correct pour votre configuration
+void init_ina219()
+{
+    i2cdev_init();
 
-void monitor_and_publish_battery_voltage(esp_mqtt_client_handle_t mqtt_client) {
-    // Configure ADC
-    adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(BATTERY_VOLTAGE_CHANNEL, ADC_ATTEN_DB_11);
+    memset(&dev, 0, sizeof(ina219_t));
 
-    // Lire la valeur ADC brute
-    int raw_reading = adc1_get_raw(BATTERY_VOLTAGE_CHANNEL);
+    ESP_ERROR_CHECK(ina219_init_desc(&dev, INA219_ADDR_GND_GND, I2C_MASTER_NUM, I2C_MASTER_SDA_IO, I2C_MASTER_SCL_IO));
+    ESP_ERROR_CHECK(ina219_init(&dev));
+}
 
-    // Convertir la lecture brute en voltage
-    // Remarque : Cette conversion dépend de votre configuration matérielle et peut nécessiter un ajustement
-    float voltage = raw_reading * (3.3 / 4095.0);
+void read_ina219(esp_mqtt_client_handle_t mqtt_client)
+{
+    float bus_voltage;
+    float shunt_voltage;
+    float current;
 
-    // Convertir le voltage en pourcentage de la batterie
-    // 3.0V est considéré comme 0%, 4.2V est considéré comme 100%
-    float battery_percentage = (voltage - 3.0) / (4.2 - 3.0) * 100;
-
-    // Limiter le pourcentage entre 0 et 100
-    if (battery_percentage < 0) battery_percentage = 0;
-    if (battery_percentage > 100) battery_percentage = 100;
-
-    // Afficher le pourcentage de la batterie dans le terminal série
-    printf("Battery: %d%%\n", (int)battery_percentage);
-
-     // Convertir le pourcentage de la batterie en une chaîne pour la publication MQTT
-    char battery_percentage_str[8];
-    snprintf(battery_percentage_str, sizeof(battery_percentage_str), "%d", (int)battery_percentage);
-
-    // Publier le pourcentage de la batterie à un sujet MQTT
-    esp_mqtt_client_publish(mqtt_client, "/esp32/battery", battery_percentage_str, 0, 1, 0);
+    if (ina219_get_bus_voltage(&dev, &bus_voltage) == ESP_OK &&
+        ina219_get_shunt_voltage(&dev, &shunt_voltage) == ESP_OK &&
+        ina219_get_current(&dev, &current) == ESP_OK)
+    {
+        // Convertir le courant en milliampères
+        float current_mA = current * 1000;
+        // Convertir la tension en pourcentage de la batterie
+        float voltage_max = 4.2; // tension maximale de la batterie
+        float voltage_min = 3.0; // tension minimale de la batterie
+        int battery_percentage = 0;
+        if (bus_voltage <= voltage_min) {
+            battery_percentage = 0;
+        } else if (bus_voltage >= voltage_max) {
+            battery_percentage = 100;
+        } else {
+            battery_percentage = (bus_voltage - voltage_min) * 100 / (voltage_max - voltage_min);
+        }
+        ESP_LOGI(INA219_TAG, "Battery percentage: %d%%", battery_percentage);
+        ESP_LOGI(INA219_TAG, "Bus voltage: %.2fV", bus_voltage);
+        ESP_LOGI(INA219_TAG, "Current: %.2fmA", current_mA);
+        // Publier le pourcentage de la batterie sur MQTT
+        char battery_percentage_str[10];
+        sprintf(battery_percentage_str, "%d", battery_percentage);
+        esp_mqtt_client_publish(mqtt_client, "/esp32/battery_percentage", battery_percentage_str, 0, 1, 0);
+        // Publier la tension de la batterie sur MQTT
+        char bus_voltage_str[10];
+        sprintf(bus_voltage_str, "%.2f", bus_voltage);
+        esp_mqtt_client_publish(mqtt_client, "/esp32/bus_voltage", bus_voltage_str, 0, 1, 0);
+        // Publier le courant sur MQTT
+        char current_str[10];
+        sprintf(current_str, "%.2f", current_mA);
+        esp_mqtt_client_publish(mqtt_client, "/esp32/current_mA", current_str, 0, 1, 0);
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Could not read data from INA219");
+    }
 }
 
 void code_main(void)
@@ -732,7 +765,7 @@ void code_main(void)
     esp_mqtt_client_config_t mqtt_cfg = {
         .broker = {
             .address = {
-                .uri = "mqtt://mqtt_ID:mqtt_PWD@IP_SERVEUR:1883",
+                .uri = "mqtt://MQTT_ID:MQTT_PWD@IP_SERVER:PORT",
             },
         },
         // initialiser les autres membres...
@@ -740,6 +773,8 @@ void code_main(void)
     esp_mqtt_client_handle_t mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_start(mqtt_client);
 
+    //INA219 Setup
+    init_ina219();
     /* Main loop */
     while (true) {
         /* Lire l'état du capteur sur le GPIO 26 */
@@ -757,7 +792,7 @@ void code_main(void)
                 char rssi_str[10];
                 sprintf(rssi_str, "%d", wifidata.rssi);
                 esp_mqtt_client_publish(mqtt_client, "/esp32/rssi", rssi_str, 0, 1, 0);
-		// Convertir le RSSI en pourcentage
+		    // Convertir le RSSI en pourcentage
                 int rssi = wifidata.rssi;
                 int rssi_max = -30;
                 int rssi_min = -100;
@@ -775,7 +810,7 @@ void code_main(void)
                 esp_mqtt_client_publish(mqtt_client, "/esp32/rssi_percentage", rssi_percentage_str, 0, 1, 0);
             }
             // Surveiller et publier le pourcentage de la batterie
-            monitor_and_publish_battery_voltage(mqtt_client);
+            read_ina219(mqtt_client);
             vTaskDelay(pdMS_TO_TICKS(5000));
             break; // Sortir de la boucle avant le deep sleep
              
@@ -808,11 +843,10 @@ void code_main(void)
                 esp_mqtt_client_publish(mqtt_client, "/esp32/rssi_percentage", rssi_percentage_str, 0, 1, 0);
             }
             // Surveiller et publier le pourcentage de la batterie
-            monitor_and_publish_battery_voltage(mqtt_client);
+            read_ina219(mqtt_client);
+            /* Attendre un court laps de temps avant de vérifier à nouveau */
+            vTaskDelay(pdMS_TO_TICKS(5000));
         }
-        
-        /* Attendre un court laps de temps avant de vérifier à nouveau */
-        vTaskDelay(pdMS_TO_TICKS(5000));
     }
     /* Mettre l'ESP32 en deep sleep */
     esp_deep_sleep_start();
