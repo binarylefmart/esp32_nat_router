@@ -639,10 +639,66 @@ void read_ina219(esp_mqtt_client_handle_t mqtt_client)
         char current_str[10];
         sprintf(current_str, "%.2f", current_mA);
         esp_mqtt_client_publish(mqtt_client, "/esp32/current_mA", current_str, 0, 1, 0);
+        // Obtenir le temps actuel
+        time_t now;
+        time(&now);
+        struct tm *timeinfo = localtime(&now);
+        // Convertir le temps en chaîne de caractères
+        char date_str[20];
+        char time_str[10];
+        // Formater la date et l'heure
+        sprintf(date_str, sizeof(date_str), "%02d-%02d-%04d", timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
+        sprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);    
+        // Publier l'heure de la dernière notification sur MQTT
+        esp_mqtt_client_publish(mqtt_client, "/esp32/last_notification_date", date_str, 0, 1, 0);
+        esp_mqtt_client_publish(mqtt_client, "/esp32/last_notification_time", time_str, 0, 1, 0);
     }
     else
     {
         ESP_LOGE(TAG, "Could not read data from INA219");
+    }
+}
+
+void read_wifi(esp_mqtt_client_handle_t mqtt_client)
+{
+    // Récupérer le RSSI
+    wifi_ap_record_t wifidata;
+    if (esp_wifi_sta_get_ap_info(&wifidata) == ESP_OK) {
+        printf("RSSI: %d\n", wifidata.rssi);
+        char rssi_str[10];
+        sprintf(rssi_str, "%d", wifidata.rssi);
+        esp_mqtt_client_publish(mqtt_client, "/esp32/rssi", rssi_str, 0, 1, 0);
+        // Convertir le RSSI en pourcentage
+        int rssi = wifidata.rssi;
+        int rssi_max = -30;
+        int rssi_min = -100;
+        int rssi_percentage = 0;
+        if (rssi <= rssi_min) {
+            rssi_percentage = 0;
+        } else if (rssi >= rssi_max) {
+            rssi_percentage = 100;
+        } else {
+            rssi_percentage = (rssi - rssi_min) * 100 / (rssi_max - rssi_min);
+        }
+        printf("Force Signal: %d%%\n", rssi_percentage);
+        char rssi_percentage_str[10];
+        sprintf(rssi_percentage_str, "%d", rssi_percentage);
+        esp_mqtt_client_publish(mqtt_client, "/esp32/rssi_percentage", rssi_percentage_str, 0, 1, 0);
+        // Obtenir le temps actuel
+        time_t now;
+        time(&now);
+        struct tm *timeinfo = localtime(&now);
+        // Convertir le temps en chaîne de caractères
+        char date_str[20];
+        char time_str[10];
+        // Formater la date et l'heure
+        sprintf(date_str, sizeof(date_str), "%02d-%02d-%04d", timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
+        sprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);    
+        // Publier l'heure de la dernière notification sur MQTT
+        esp_mqtt_client_publish(mqtt_client, "/esp32/last_notification_date", date_str, 0, 1, 0);
+        esp_mqtt_client_publish(mqtt_client, "/esp32/last_notification_time", time_str, 0, 1, 0);
+    } else {
+        ESP_LOGE(TAG, "Could not get RSSI");
     }
 }
 
@@ -785,30 +841,8 @@ void code_main(void)
             printf("Il fait nuit, GPIO à l'état High; Mise en deep sleep...\n");
             /* Publier l'état du capteur sur MQTT */
             esp_mqtt_client_publish(mqtt_client, "/sensor/state", "Nuit", 0, 1, 0);
-            // Récupérer le RSSI
-            wifi_ap_record_t wifidata;
-            if (esp_wifi_sta_get_ap_info(&wifidata) == ESP_OK) {
-                printf("RSSI: %d\n", wifidata.rssi);
-                char rssi_str[10];
-                sprintf(rssi_str, "%d", wifidata.rssi);
-                esp_mqtt_client_publish(mqtt_client, "/esp32/rssi", rssi_str, 0, 1, 0);
-		    // Convertir le RSSI en pourcentage
-                int rssi = wifidata.rssi;
-                int rssi_max = -30;
-                int rssi_min = -100;
-                int rssi_percentage = 0;
-                if (rssi <= rssi_min) {
-                    rssi_percentage = 0;
-                } else if (rssi >= rssi_max) {
-                    rssi_percentage = 100;
-                } else {
-                    rssi_percentage = (rssi - rssi_min) * 100 / (rssi_max - rssi_min);
-                }
-                printf("Force Signal: %d%%\n", rssi_percentage);
-                char rssi_percentage_str[10];
-                sprintf(rssi_percentage_str, "%d", rssi_percentage);
-                esp_mqtt_client_publish(mqtt_client, "/esp32/rssi_percentage", rssi_percentage_str, 0, 1, 0);
-            }
+            // Surveiller et publier le wif
+            read_wifi(mqtt_client);
             // Surveiller et publier le pourcentage de la batterie
             read_ina219(mqtt_client);
             vTaskDelay(pdMS_TO_TICKS(5000));
@@ -818,30 +852,8 @@ void code_main(void)
             printf("Il fait jour, GPIO à l'état Low; En attente ...\n");
             /* Publier l'état du capteur sur MQTT */
             esp_mqtt_client_publish(mqtt_client, "/sensor/state", "Jour", 0, 1, 0);
-            // Récupérer le RSSI
-            wifi_ap_record_t wifidata;
-            if (esp_wifi_sta_get_ap_info(&wifidata) == ESP_OK) {
-                printf("RSSI: %d\n", wifidata.rssi);
-                char rssi_str[10];
-                sprintf(rssi_str, "%d", wifidata.rssi);
-                esp_mqtt_client_publish(mqtt_client, "/esp32/rssi", rssi_str, 0, 1, 0);
-	        // Convertir le RSSI en pourcentage
-                int rssi = wifidata.rssi;
-                int rssi_max = -30;
-                int rssi_min = -100;
-                int rssi_percentage = 0;
-                if (rssi <= rssi_min) {
-                    rssi_percentage = 0;
-                } else if (rssi >= rssi_max) {
-                    rssi_percentage = 100;
-                } else {
-                    rssi_percentage = (rssi - rssi_min) * 100 / (rssi_max - rssi_min);
-                }
-                printf("Force Signal: %d%%\n", rssi_percentage);
-                char rssi_percentage_str[10];
-                sprintf(rssi_percentage_str, "%d", rssi_percentage);
-                esp_mqtt_client_publish(mqtt_client, "/esp32/rssi_percentage", rssi_percentage_str, 0, 1, 0);
-            }
+            // Surveiller et publier le wifi
+            read_wifi(mqtt_client);
             // Surveiller et publier le pourcentage de la batterie
             read_ina219(mqtt_client);
             /* Attendre un court laps de temps avant de vérifier à nouveau */
