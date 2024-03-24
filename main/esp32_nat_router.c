@@ -655,17 +655,15 @@ void read_ina219(esp_mqtt_client_handle_t mqtt_client)
         }
         // Convertir le temps en chaîne de caractères
         char date_str[40];
+        strftime(date_str, sizeof(date_str), "%d/%m/%Y", timeinfo); // Format de date français DD/MM/YYYY
         char time_str[10];
-        // Formater la date et l'heure
-        snprintf(date_str, sizeof(date_str), "%02d-%02d-%04d", timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
-        snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);    
+        strftime(time_str, sizeof(time_str), "%H:%M", timeinfo); // Format de temps HH:MM
+        char datetime_str[50];
+        snprintf(datetime_str, sizeof(datetime_str), "%s %s", date_str, time_str);
         // Ajouter la date et l'heure dans les logs
-        ESP_LOGI(TAG, "Date: %s", date_str);
-        ESP_LOGI(TAG, "Time: %s\n", time_str);
-        // Publier l'heure de la dernière notification sur MQTT
-        esp_mqtt_client_publish(mqtt_client, "/esp32/last_notification_date", date_str, 0, 1, 0);
-        esp_mqtt_client_publish(mqtt_client, "/esp32/last_notification_time", time_str, 0, 1, 0);
-    }
+        ESP_LOGI(TAG, "Current date and time: %s", datetime_str);
+        // Publier datetime_str sur MQTT
+        esp_mqtt_client_publish(mqtt_client, "/esp32/last_notification_datetime", datetime_str, 0, 1, 0);    }
     else
     {
         ESP_LOGE(TAG, "Could not read data from INA219");
@@ -707,16 +705,14 @@ void read_wifi(esp_mqtt_client_handle_t mqtt_client)
         }
         // Convertir le temps en chaîne de caractères
         char date_str[40];
+        strftime(date_str, sizeof(date_str), "%d/%m/%Y", timeinfo); // Format de date français DD/MM/YYYY
         char time_str[10];
-        // Formater la date et l'heure
-        snprintf(date_str, sizeof(date_str), "%02d-%02d-%04d", timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
-        snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);    
-        // Ajouter la date et l'heure dans les logs
-        ESP_LOGI(TAG, "Date: %s", date_str);
-        ESP_LOGI(TAG, "Time: %s\n", time_str);
-        // Publier l'heure de la dernière notification sur MQTT
-        esp_mqtt_client_publish(mqtt_client, "/esp32/last_notification_date", date_str, 0, 1, 0);
-        esp_mqtt_client_publish(mqtt_client, "/esp32/last_notification_time", time_str, 0, 1, 0);
+        strftime(time_str, sizeof(time_str), "%H:%M", timeinfo); // Format de temps HH:MM
+        char datetime_str[50];
+        snprintf(datetime_str, sizeof(datetime_str), "%s %s", date_str, time_str);
+        ESP_LOGI(TAG, "Current date and time: %s", datetime_str);
+        // Publier datetime_str sur MQTT
+        esp_mqtt_client_publish(mqtt_client, "/esp32/last_notification_datetime", datetime_str, 0, 1, 0);
     } else {
         ESP_LOGE(TAG, "Could not get RSSI");
     }
@@ -874,7 +870,7 @@ void code_main(void)
     esp_mqtt_client_config_t mqtt_cfg = {
         .broker = {
             .address = {
-                .uri = "mqtt://mqtt_adm:MqTTlou@182.25.1.50:1883",
+                .uri = "mqtt://MQTT_ID:MQTT_PWD@IP_SERVER:PORT",
             },
         },
         // initialiser les autres membres...
