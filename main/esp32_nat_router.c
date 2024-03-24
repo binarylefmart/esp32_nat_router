@@ -50,6 +50,12 @@
 //Rajout INA219
 #include "ina219.h"
 
+//Rajout Time
+#include <time.h>
+#include "esp_log.h"
+#include "esp_sntp.h"
+#include <sys/time.h>
+
 #if !IP_NAPT
 #error "IP_NAPT must be defined"
 #endif
@@ -626,7 +632,7 @@ void read_ina219(esp_mqtt_client_handle_t mqtt_client)
         }
         ESP_LOGI(INA219_TAG, "Battery percentage: %d%%", battery_percentage);
         ESP_LOGI(INA219_TAG, "Bus voltage: %.2fV", bus_voltage);
-        ESP_LOGI(INA219_TAG, "Current: %.2fmA", current_mA);
+        ESP_LOGI(INA219_TAG, "Current: %.2fmA\n", current_mA);
         // Publier le pourcentage de la batterie sur MQTT
         char battery_percentage_str[10];
         sprintf(battery_percentage_str, "%d", battery_percentage);
@@ -643,12 +649,19 @@ void read_ina219(esp_mqtt_client_handle_t mqtt_client)
         time_t now;
         time(&now);
         struct tm *timeinfo = localtime(&now);
+        if (timeinfo == NULL) {
+            ESP_LOGE(TAG, "Failed to get local time");
+            return;
+        }
         // Convertir le temps en chaîne de caractères
-        char date_str[20];
+        char date_str[40];
         char time_str[10];
         // Formater la date et l'heure
-        sprintf(date_str, sizeof(date_str), "%02d-%02d-%04d", timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
-        sprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);    
+        snprintf(date_str, sizeof(date_str), "%02d-%02d-%04d", timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
+        snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);    
+        // Ajouter la date et l'heure dans les logs
+        ESP_LOGI(TAG, "Date: %s", date_str);
+        ESP_LOGI(TAG, "Time: %s\n", time_str);
         // Publier l'heure de la dernière notification sur MQTT
         esp_mqtt_client_publish(mqtt_client, "/esp32/last_notification_date", date_str, 0, 1, 0);
         esp_mqtt_client_publish(mqtt_client, "/esp32/last_notification_time", time_str, 0, 1, 0);
@@ -664,7 +677,7 @@ void read_wifi(esp_mqtt_client_handle_t mqtt_client)
     // Récupérer le RSSI
     wifi_ap_record_t wifidata;
     if (esp_wifi_sta_get_ap_info(&wifidata) == ESP_OK) {
-        printf("RSSI: %d\n", wifidata.rssi);
+        ESP_LOGI(TAG, "RSSI: %d", wifidata.rssi);
         char rssi_str[10];
         sprintf(rssi_str, "%d", wifidata.rssi);
         esp_mqtt_client_publish(mqtt_client, "/esp32/rssi", rssi_str, 0, 1, 0);
@@ -680,7 +693,7 @@ void read_wifi(esp_mqtt_client_handle_t mqtt_client)
         } else {
             rssi_percentage = (rssi - rssi_min) * 100 / (rssi_max - rssi_min);
         }
-        printf("Force Signal: %d%%\n", rssi_percentage);
+        ESP_LOGI(TAG, "Force Signal: %d%%\n", rssi_percentage);
         char rssi_percentage_str[10];
         sprintf(rssi_percentage_str, "%d", rssi_percentage);
         esp_mqtt_client_publish(mqtt_client, "/esp32/rssi_percentage", rssi_percentage_str, 0, 1, 0);
@@ -688,18 +701,58 @@ void read_wifi(esp_mqtt_client_handle_t mqtt_client)
         time_t now;
         time(&now);
         struct tm *timeinfo = localtime(&now);
+        if (timeinfo == NULL) {
+            ESP_LOGE(TAG, "Failed to get local time");
+            return;
+        }
         // Convertir le temps en chaîne de caractères
-        char date_str[20];
+        char date_str[40];
         char time_str[10];
         // Formater la date et l'heure
-        sprintf(date_str, sizeof(date_str), "%02d-%02d-%04d", timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
-        sprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);    
+        snprintf(date_str, sizeof(date_str), "%02d-%02d-%04d", timeinfo->tm_mday, timeinfo->tm_mon + 1, timeinfo->tm_year + 1900);
+        snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec);    
+        // Ajouter la date et l'heure dans les logs
+        ESP_LOGI(TAG, "Date: %s", date_str);
+        ESP_LOGI(TAG, "Time: %s\n", time_str);
         // Publier l'heure de la dernière notification sur MQTT
         esp_mqtt_client_publish(mqtt_client, "/esp32/last_notification_date", date_str, 0, 1, 0);
         esp_mqtt_client_publish(mqtt_client, "/esp32/last_notification_time", time_str, 0, 1, 0);
     } else {
         ESP_LOGE(TAG, "Could not get RSSI");
     }
+}
+
+void time_sync_notification_cb(struct timeval *tv)
+{
+    ESP_LOGI(TAG, "Notification of a time synchronization event");
+}
+
+void initialize_sntp(void)
+{
+    ESP_LOGI(TAG, "Initializing SNTP");
+    sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    sntp_setservername(0, "pool.ntp.org");
+    sntp_set_time_sync_notification_cb(time_sync_notification_cb);
+    sntp_init();
+}
+
+void obtain_time(void)
+{
+    initialize_sntp();
+
+    // wait for time to be set
+    int retry = 0;
+    const int retry_count = 10;
+    while (sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET && ++retry < retry_count) {
+        ESP_LOGI(TAG, "Waiting for system time to be set... (%d/%d)", retry, retry_count);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+    }
+}
+
+void set_french_time_zone(void)
+{
+    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
+    tzset();
 }
 
 void code_main(void)
@@ -821,21 +874,22 @@ void code_main(void)
     esp_mqtt_client_config_t mqtt_cfg = {
         .broker = {
             .address = {
-                .uri = "mqtt://MQTT_ID:MQTT_PWD@IP_SERVER:PORT",
+                .uri = "mqtt://mqtt_adm:MqTTlou@182.25.1.50:1883",
             },
         },
         // initialiser les autres membres...
     };
     esp_mqtt_client_handle_t mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_start(mqtt_client);
-
     //INA219 Setup
     init_ina219();
+    // Obtenir l'heure actuelle
+    obtain_time();
+    set_french_time_zone();
     /* Main loop */
     while (true) {
         /* Lire l'état du capteur sur le GPIO 26 */
         int sensor_state = gpio_get_level(GPIO_SENSOR_PIN);
-
         /* Vérifier l'état du capteur */
         if (sensor_state == 1) {
             printf("Il fait nuit, GPIO à l'état High; Mise en deep sleep...\n");
